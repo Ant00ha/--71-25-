@@ -31,7 +31,7 @@ if [ -z "$1" ]; then
 fi
 
 
-cat "$1" | grep -oE '...твоя регулярка...' | sort | uniq | tr '\n' ' '
+cat "$1" | grep -oE "[a-zA-Z_][a-zA-Z0-9_]*" | sort | uniq | tr '\n' ' '
 echo "" 
 
 chmod +x identifilers
