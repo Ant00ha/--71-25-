@@ -37,6 +37,9 @@ echo ""
 chmod +x identifilers
 
 ./identifilers hello.c
+
+
+
 задача 5:
 
 c  GNU nano 8.7.1                                                                                 
@@ -135,5 +138,125 @@ done
 
 
 задача 8:
+
+nano make_archive
+
+#!/bin/bash
+
+
+if [ "$#" -ne 2 ]; then
+    echo "Использование: $0 <директория> <расширение>"
+    exit 1
+fi
+
+DIR="$1"
+EXT="$2"
+
+if [ ! -d "$DIR" ]; then
+    echo "Ошибка: директория '$DIR' не найдена"
+    exit 1
+fi
+
+ARCHIVE="archive_${EXT}.tar"
+
+
+find "$DIR" -type f -name "*.$EXT" -print0 | tar -cf "$ARCHIVE" --null -T -
+
+echo "Архив '$ARCHIVE' создан."
+
+=============test
+mkdir -p /tmp/archive_test/subdir
+cd /tmp/archive_test
+
+echo "test1" > a.txt
+echo "test2" > b.txt
+echo "test3" > subdir/c.txt
+echo "не txt" > d.log
+echo "с пробелом" > "my file.txt"
+
+./make_archive /tmp/archive_test txt
+
 задача 9:
+
+nano spaces_to_tab
+
+#!/bin/bash
+
+
+if [ "$#" -ne 2 ]; then
+    echo "Использование: $0 <входной файл> <выходной файл>"
+    exit 1
+fi
+
+IN="$1"
+OUT="$2"
+
+
+if [ ! -f "$IN" ]; then
+    echo "Ошибка: файл '$IN' не найден"
+    exit 1
+fi
+
+
+sed 's/    /\t/g' "$IN" > "$OUT"
+
+echo "Готово: $IN → $OUT"
+
+============test
+cat > /tmp/input.txt <<'EOF'
+строка с 4 пробелами    конец
+строка с 8 пробелами        конец
+строка с 2 пробелами  конец
+строка с табомвнутри
+строка с 6 пробелами      конец
+EOF
+
+
+chmod +x spaces_to_tab
+
+./spaces_to_tab /tmp/input.txt /tmp/output.txt
+<img width="1385" height="448" alt="изображение" src="https://github.com/user-attachments/assets/d799082c-832b-400a-a938-4d9afcf523ba" />
+
+
 задача 10:
+
+ nano find_empty
+                                              
+                                                                                                     
+#!/bin/bash
+
+
+if [ -z "$1" ]; then
+    echo "Использование: $0 <директория>"
+    exit 1
+fi
+
+
+if [ ! -d "$1" ]; then
+    echo "Ошибка: '$1' — не директория"
+    exit 1
+fi
+
+
+while IFS= read -r -d '' file; do
+    type=$(file -b "$file")
+    
+    if [[ "$type" == *text* ]] || [[ "$type" == "empty" ]]; then
+    echo "$file"
+    fi
+done < <(find "$1" -type f -empty -print0) 
+
+===================test
+mkdir -p /tmp/empty_test/sub
+cd /tmp/empty_test
+
+touch empty1.txt          # пустой .txt
+touch empty2              # пустой без расширения
+touch sub/empty3.log      # пустой .log в подкаталоге
+echo "hello" > notempty.txt   # непустой .txt
+touch empty4.png          # пустой .png (с точки зрения file — тоже "empty")
+
+chmod +x find_empty
+
+./find_empty /tmp/empty_test
+
