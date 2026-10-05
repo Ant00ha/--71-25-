@@ -259,4 +259,145 @@ touch empty4.png          # пустой .png (с точки зрения file �
 chmod +x find_empty
 
 ./find_empty /tmp/empty_test
+-------------------------------------------------------------------------------
+# Практическое занятие №2. Менеджеры пакетов
+## Задача 1
+```
+pip show matplotlib
+```
+## Как получить пакет без менеджера пакетов, прямо из репозитория?
+```
+curl -s https://pypi.org/pypi/matplotlib/json | jq -r '.urls[] | select(.packagetype=="sdist") | .url' | xargs curl -O
+tar -xzf matplotlib-*.tar.gz
+cd matplotlib-*
+python setup.py install
+```
+## Задача 2
+```
+npm view express
+```
+## Как получить пакет без менеджера пакетов, прямо из репозитория?
+```
+curl -s https://registry.npmjs.org/express/latest | jq -r '.dist.tarball' | xargs curl -O
+tar -xzf express-*.tgz
+cd package
+```
+## Задача 3
+## matplotlib
+```
+digraph matplotlib_deps {
+    rankdir=LR;
+    node [shape=box, style=filled, color=lightblue];
+    
+    matplotlib [color=lightgreen];
+    numpy;
+    pillow;
+    pyparsing;
+    cycler;
+    fonttools;
+    kiwisolver;
+    packaging;
+    python_dateutil [label="python-dateutil"];
 
+    matplotlib -> numpy;
+    matplotlib -> pillow;
+    matplotlib -> pyparsing;
+    matplotlib -> cycler;
+    matplotlib -> fonttools;
+    matplotlib -> kiwisolver;
+    matplotlib -> packaging;
+    matplotlib -> python_dateutil;
+}
+```
+## expess
+```
+digraph express_deps {
+    rankdir=LR;
+    node [shape=box, style=filled, color=lightyellow];
+    
+    express [color=lightgreen];
+    accepts;
+    body_parser [label="body-parser"];
+    cookie;
+    debug;
+    qs;
+
+    express -> accepts;
+    express -> body_parser;
+    express -> cookie;
+    express -> debug;
+    express -> qs;
+}
+```
+## Задача 4
+```
+include "all_different.mzn";
+
+array[1..6] of var 0..9: digits;
+
+constraint all_different(digits);
+
+constraint digits[1] + digits[2] + digits[3] = digits[4] + digits[5] + digits[6];
+
+solve minimize digits[1] + digits[2] + digits[3];
+
+output [
+    "Билет: \(digits[1])\(digits[2])\(digits[3]) - \(digits[4])\(digits[5])\(digits[6])\n",
+    "Сумма первой тройки: \(digits[1] + digits[2] + digits[3])\n",
+    "Сумма второй тройки: \(digits[4] + digits[5] + digits[6])\n"
+];
+```
+## Задача 5
+```
+var {0, 100, 110, 120, 130, 140, 150}: menu;
+var {0, 180, 200, 210, 220, 230}: dropdown;
+var {0, 100, 200}: icons;
+
+constraint menu > 0;
+constraint icons == 100;
+
+constraint menu == 100 -> dropdown == 180;
+constraint menu >= 110 -> dropdown >= 200;
+
+constraint dropdown >= 200 -> icons == 200;
+
+solve satisfy;
+
+output [
+  "menu: ", show(menu), "\n",
+  "dropdown: ", show(dropdown), "\n",
+  "icons: ", show(icons), "\n"
+];
+```
+## Задача 6
+```
+var {0, 100}: root;
+var {0, 100, 110}: foo;
+var {0, 100}: left;
+var {0, 100}: right;
+var {0, 100, 200}: shared;
+var {0, 100, 200}: target;
+
+constraint root == 100;
+
+constraint root == 100 -> (foo >= 100 /\ foo < 200 /\ target >= 200 /\ target < 300);
+
+constraint foo == 110 -> (left >= 100 /\ left < 200 /\ right >= 100 /\ right < 200);
+
+constraint left == 100 -> shared >= 100;
+
+constraint right == 100 -> (shared > 0 /\ shared < 200);
+
+constraint shared == 100 -> (target >= 100 /\ target < 200);
+
+solve satisfy;
+
+output [
+  "root: ", show(root), "\n",
+  "foo: ", show(foo), "\n",
+  "left: ", show(left), "\n",
+  "right: ", show(right), "\n",
+  "shared: ", show(shared), "\n",
+  "target: ", show(target), "\n"
+];
+```
