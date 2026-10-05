@@ -401,3 +401,118 @@ output [
   "target: ", show(target), "\n"
 ];
 ```
+## Задача 7
+```
+import asyncio
+from minizinc import Instance, Model, Solver
+
+PACKAGES_DB = {
+    "root": {
+        "1.0.0": {"foo": "^1.0.0", "target": "^2.0.0"}
+    },
+    "foo": {
+        "1.0.0": {},
+        "1.1.0": {"left": "^1.0.0", "right": "^1.0.0"}
+    },
+    "left": {
+        "1.0.0": {"shared": ">=1.0.0"}
+    },
+    "right": {
+        "1.0.0": {"shared": "<2.0.0"}
+    },
+    "shared": {
+        "1.0.0": {"target": "^1.0.0"},
+        "2.0.0": {}
+    },
+    "target": {
+        "1.0.0": {},
+        "2.0.0": {}
+    }
+}
+
+
+def version_to_int(v_str: str) -> int:
+    parts = list(map(int, v_str.split('.')))
+    return parts[0] * 10000 + parts[1] * 100 + parts[2]
+
+
+def int_to_version(v_int: int) -> str:
+    if v_int == 0:
+        return "Not Installed"
+    major = v_int // 10000
+    minor = (v_int % 10000) // 100
+    patch = v_int % 100
+    return f"{major}.{minor}.{patch}"
+
+
+def parse_constraint(pkg_var: str, constraint_str: str) -> str:
+    if constraint_str.startswith("^"):
+        v = constraint_str[1:]
+        base = version_to_int(v)
+        major = int(v.split('.')[0])
+        next_major = (major + 1) * 10000
+        return f"({pkg_var} >= {base} /\\ {pkg_var} < {next_major})"
+    elif constraint_str.startswith(">="):
+        base = version_to_int(constraint_str[2:])
+        return f"({pkg_var} >= {base})"
+    elif constraint_str.startswith("<"):
+        base = version_to_int(constraint_str[1:])
+        return f"({pkg_var} > 0 /\\ {pkg_var} < {base})"
+    elif constraint_str.startswith("=="):
+        base = version_to_int(constraint_str[2:])
+        return f"({pkg_var} == {base})"
+    else:
+        base = version_to_int(constraint_str)
+        return f"({pkg_var} == {base})"
+
+
+def generate_mzn_code(db: dict, root_pkg: str, root_ver: str) -> str:
+    lines = []
+
+    for pkg, versions in db.items():
+        v_ints = [0] + [version_to_int(v) for v in versions.keys()]
+        v_set = "{" + ", ".join(map(str, sorted(v_ints))) + "}"
+        lines.append(f"var {v_set}: {pkg};")
+
+    lines.append("")
+    lines.append(f"constraint {root_pkg} == {version_to_int(root_ver)};\n")
+
+    for pkg, versions in db.items():
+        for v_str, deps in versions.items():
+            v_int = version_to_int(v_str)
+            if not deps:
+                continue
+
+            dep_conds = [parse_constraint(dep_pkg, expr) for dep_pkg, expr in deps.items()]
+            full_deps = " /\\ ".join(dep_conds)
+            lines.append(f"constraint {pkg} == {v_int} -> ({full_deps});")
+
+    lines.append("\nsolve satisfy;")
+    return "\n".join(lines)
+
+
+async def main():
+    target_package = "root"
+    target_version = "1.0.0"
+
+    mzn_code = generate_mzn_code(PACKAGES_DB, target_package, target_version)
+
+    model = Model()
+    model.add_string(mzn_code)
+    
+    solver = Solver.lookup("gecode")
+    instance = Instance(solver, model)
+
+    result = await instance.solve_async()
+
+    if result.status.has_solution():
+        for pkg in PACKAGES_DB.keys():
+            val = result[pkg]
+            print(f"{pkg}: {int_to_version(val)}")
+    else:
+        print("Unsatisfiable")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
+```
