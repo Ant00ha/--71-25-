@@ -516,3 +516,95 @@ if __name__ == "__main__":
     asyncio.run(main())
 
 ```
+## Практика 1 / Сборники индивидуальных вариантов практического задания №1
+# вариант 9 / икбо-71-25
+# задача 1
+```
+import shlex
+import sys
+
+VFS_NAME = "my_vfs"
+
+def print_error(message):
+    print(f"{VFS_NAME}: error: {message}")
+
+def cmd_ls(args):
+    """
+    Заглушка для команды ls.
+    Выводит свое имя и полученные аргументы.
+    """
+    print("Command: ls")
+    print(f"Arguments: {args}")
+
+def cmd_cd(args):
+    """
+    Заглушка для команды cd.
+    Выводит свое имя и полученные аргументы.
+    """
+    print("Command: cd")
+    print(f"Arguments: {args}")
+
+def cmd_exit(args):
+    """Реализация команды exit"""
+    print("Exiting...")
+    sys.exit(0)
+
+# словарь команд
+COMMANDS = {
+    "ls": cmd_ls,
+    "cd": cmd_cd,
+    "exit": cmd_exit
+}
+
+def parse_input(input_str):
+    try:
+        # posix=True включает поддержку кавычек (одинарных и двойных) как в Unix
+        parts = shlex.split(input_str, posix=True)
+        return parts
+    except ValueError as e:
+        
+        print_error(f"syntax error: {e}")
+        return None
+
+def main():
+    print(f"Welcome to {VFS_NAME} (Variant 9, Stage 1 REPL)")
+    print("Type 'exit' to quit.")
+
+    while True:
+        try:
+           
+            user_input = input(f"{VFS_NAME}> ")
+            
+            
+            if not user_input.strip():
+                continue
+
+            
+            parsed_args = parse_input(user_input)
+            
+            if parsed_args is None:
+                continue # Переходим к следующей итерации при ошибке парсинга
+            
+            if not parsed_args:
+                continue
+
+            command = parsed_args[0]
+            args = parsed_args[1:]
+
+           
+            if command in COMMANDS:
+                COMMANDS[command](args)
+            else:
+                
+                print_error(f"command not found: {command}")
+
+        except KeyboardInterrupt:
+            # Обработка Ctrl+C 
+            print("\nExiting...")
+            break
+        except Exception as e:
+            print_error(f"unexpected error: {e}")
+
+if __name__ == "__main__":
+    main()
+```
