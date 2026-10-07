@@ -518,7 +518,7 @@ if __name__ == "__main__":
 ```
 ## Практика 1 / Сборники индивидуальных вариантов практического задания №1
 # вариант 9 / икбо-71-25
-# задача 1
+# этап 1
 ```
 import shlex
 import sys
@@ -604,6 +604,143 @@ def main():
             break
         except Exception as e:
             print_error(f"unexpected error: {e}")
+
+if __name__ == "__main__":
+    main()
+```
+# этап 2
+```
+import shlex
+import sys
+import argparse
+import csv
+import os
+from datetime import datetime
+
+VFS_NAME = "my_vfs"
+DEFAULT_VFS_PATH = "./vfs_data"
+DEFAULT_LOG_FILE = "./vfs_log.csv"
+
+
+log_file_path = DEFAULT_LOG_FILE
+
+def log_event(command, args, status, error_msg=""):
+    """Простая запись события в CSV файл"""
+    if not log_file_path:
+        return
+    try:
+        
+        with open(log_file_path, 'a', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            time_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            writer.writerow([time_now, command, " ".join(args), status, error_msg])
+    except Exception:
+        pass 
+
+def print_error(message):
+    """Вывод ошибки"""
+    err = f"{VFS_NAME}: error: {message}"
+    print(err)
+    return err
+
+def cmd_ls(args):
+    print("Command: ls")
+    print(f"Arguments: {args}")
+
+def cmd_cd(args):
+    print("Command: cd")
+    print(f"Arguments: {args}")
+
+def cmd_exit(args):
+    print("Exiting...")
+    sys.exit(0)
+
+def execute_command(line, is_script=False):
+    """Парсинг и выполнение одной команды"""
+    if not line.strip():
+        return
+
+    #выводим приглашение и команду)
+    if is_script:
+        print(f"{VFS_NAME}> {line.strip()}")
+
+    try:
+        parts = shlex.split(line, posix=True)
+    except ValueError as e:
+        err = print_error(f"syntax error: {e}")
+        log_event(line, [], "error", err)
+        if is_script: sys.exit(1)
+        return
+
+    if not parts:
+        return
+
+    command = parts[0]
+    args = parts[1:]
+
+   
+    commands = {
+        "ls": cmd_ls,
+        "cd": cmd_cd,
+        "exit": cmd_exit
+    }
+
+    if command in commands:
+        commands[command](args)
+        log_event(command, args, "success")
+    else:
+        err = print_error(f"command not found: {command}")
+        log_event(command, args, "error", err)
+        if is_script: sys.exit(1) # Остановка скрипта при ошибке
+
+def main():
+    global log_file_path
+
+    
+    parser = argparse.ArgumentParser(description="VFS Emulator (Variant 9)")
+    parser.add_argument("--vfs-path", default=DEFAULT_VFS_PATH, help="Путь к VFS")
+    parser.add_argument("--log-file", default=DEFAULT_LOG_FILE, help="Путь к лог-файлу")
+    parser.add_argument("--script", default=None, help="Путь к стартовому скрипту")
+    
+    args = parser.parse_args()
+    log_file_path = args.log_file
+
+    
+    print("=== Configuration ===")
+    print(f"VFS Path:   {args.vfs_path}")
+    print(f"Log File:   {args.log_file}")
+    print(f"Script File: {args.script if args.script else 'None'}")
+    print("=====================\n")
+
+    
+    if not os.path.exists(args.vfs_path):
+        os.makedirs(args.vfs_path)
+
+    # Инициализация лог-файла (создаем заголовки, если файла нет)
+    if not os.path.exists(log_file_path):
+        with open(log_file_path, 'w', newline='', encoding='utf-8') as f:
+            csv.writer(f).writerow(['datetime', 'command', 'args', 'status', 'error_message'])
+
+    # Режим скрипта
+    if args.script:
+        if not os.path.exists(args.script):
+            print_error(f"script file not found: {args.script}")
+            sys.exit(1)
+        with open(args.script, 'r', encoding='utf-8') as f:
+            for line in f:
+                execute_command(line, is_script=True)
+        return
+
+    
+    print(f"Welcome to {VFS_NAME}")
+    print("Type 'exit' to quit.")
+    while True:
+        try:
+            user_input = input(f"{VFS_NAME}> ")
+            execute_command(user_input)
+        except KeyboardInterrupt:
+            print("\nExiting...")
+            break
 
 if __name__ == "__main__":
     main()
