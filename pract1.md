@@ -745,3 +745,211 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+## Этап 3
+```
+import shlex
+import sys
+import argparse
+import csv
+import os
+import zipfile
+import io
+import base64
+from datetime import datetime
+
+VFS_NAME = "my_vfs"
+DEFAULT_VFS_PATH = "./vfs_data"
+DEFAULT_LOG_FILE = "./vfs_log.csv"
+
+
+log_file_path = DEFAULT_LOG_FILE
+vfs_tree = {} # Словарь для хранения файловой системы в памяти
+
+def log_event(command, args, status, error_msg=""):
+    """Запись события в CSV файл"""
+    if not log_file_path:
+        return
+    try:
+        with open(log_file_path, 'a', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            time_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            writer.writerow([time_now, command, " ".join(args), status, error_msg])
+    except Exception:
+        pass
+
+def print_error(message):
+    """Вывод ошибки"""
+    err = f"{VFS_NAME}: error: {message}"
+    print(err)
+    return err
+
+
+
+def load_vfs_from_base64(file_path):
+    """
+    Загружает ZIP-архив в память.
+    Архив может быть обычным .zip или текстовым файлом с Base64.
+    """
+    global vfs_tree
+    vfs_tree = {}
+    
+    if not os.path.exists(file_path):
+        print_error(f"VFS file not found: {file_path}")
+        return False
+
+    try:
+        # 1. Читаем файл
+        with open(file_path, 'rb') as f:
+            file_content = f.read()
+
+        # 2. Проверяем, является ли файл Base64 текстом или обычным ZIP
+        zip_data = None
+        try:
+            
+            # Игнорируем пробелы и переносы строк
+            decoded = base64.b64decode(file_content, validate=True)
+            zip_data = io.BytesIO(decoded)
+        except Exception:
+            # Если не получилось, пробуем открыть как обычный ZIP
+            zip_data = io.BytesIO(file_content)
+
+        # 3. Открываем ZIP из памяти
+        with zipfile.ZipFile(zip_data, 'r') as zf:
+            # Проверка на валидность ZIP
+            if zf.testzip() is not None:
+                print_error("VFS load error: Corrupted ZIP archive")
+                return False
+            
+            # Построение дерева файлов в памяти
+            for file_info in zf.infolist():
+                # Игнорируем папки, храним только файлы
+                if not file_info.is_dir():
+                    # Читаем содержимое файла в память (bytes)
+                    content = zf.read(file_info.filename)
+                    vfs_tree[file_info.filename] = content
+                    
+        return True
+
+    except zipfile.BadZipFile:
+        print_error("VFS load error: Invalid ZIP format")
+        return False
+    except Exception as e:
+        print_error(f"VFS load error: {e}")
+        return False
+
+# ================= КОМАНДЫ =================
+
+def cmd_ls(args):
+    """Реализация ls на основе загруженного VFS"""
+    print("Command: ls")
+    print(f"Arguments: {args}")
+    
+    if not vfs_tree:
+        print("  (VFS is empty or not loaded)")
+        return
+
+    
+    print("  Files in VFS:")
+    for path in sorted(vfs_tree.keys()):
+        print(f"  - {path}")
+
+def cmd_cd(args):
+    print("Command: cd")
+    print(f"Arguments: {args}")
+
+def cmd_exit(args):
+    print("Exiting...")
+    sys.exit(0)
+
+def execute_command(line, is_script=False):
+    """Парсинг и выполнение одной команды"""
+    if not line.strip():
+        return
+
+    if is_script:
+        print(f"{VFS_NAME}> {line.strip()}")
+
+    try:
+        parts = shlex.split(line, posix=True)
+    except ValueError as e:
+        err = print_error(f"syntax error: {e}")
+        log_event(line, [], "error", err)
+        if is_script: sys.exit(1)
+        return
+
+    if not parts:
+        return
+
+    command = parts[0]
+    args = parts[1:]
+
+    commands = {
+        "ls": cmd_ls,
+        "cd": cmd_cd,
+        "exit": cmd_exit
+    }
+
+    if command in commands:
+        commands[command](args)
+        log_event(command, args, "success")
+    else:
+        err = print_error(f"command not found: {command}")
+        log_event(command, args, "error", err)
+        if is_script: sys.exit(1)
+
+# ================= ОСНОВНАЯ ЛОГИКА =================
+
+def main():
+    global log_file_path
+
+    parser = argparse.ArgumentParser(description="VFS Emulator (Variant 9)")
+    parser.add_argument("--vfs-path", default=DEFAULT_VFS_PATH, help="Путь к VFS (ZIP или Base64)")
+    parser.add_argument("--log-file", default=DEFAULT_LOG_FILE, help="Путь к лог-файлу")
+    parser.add_argument("--script", default=None, help="Путь к стартовому скрипту")
+    
+    args = parser.parse_args()
+    log_file_path = args.log_file
+
+    print("=== Configuration ===")
+    print(f"VFS Path:   {args.vfs_path}")
+    print(f"Log File:   {args.log_file}")
+    print(f"Script File: {args.script if args.script else 'None'}")
+    print("=====================\n")
+
+    # Инициализация лог-файла
+    if not os.path.exists(log_file_path):
+        with open(log_file_path, 'w', newline='', encoding='utf-8') as f:
+            csv.writer(f).writerow(['datetime', 'command', 'args', 'status', 'error_message'])
+
+    # Загрузка VFS 
+    print(f"Loading VFS from {args.vfs_path}...")
+    if load_vfs_from_base64(args.vfs_path):
+        print(f"VFS loaded successfully. Files: {len(vfs_tree)}")
+    else:
+        # Если VFS не загрузилась, продолжаем работу, но ls будет пустым
+        print("Warning: VFS is not loaded. Commands will work with empty file system.")
+
+    # Режим скрипта
+    if args.script:
+        if not os.path.exists(args.script):
+            print_error(f"script file not found: {args.script}")
+            sys.exit(1)
+        with open(args.script, 'r', encoding='utf-8') as f:
+            for line in f:
+                execute_command(line, is_script=True)
+        return
+
+    # Интерактивный режим
+    print(f"Welcome to {VFS_NAME}")
+    print("Type 'exit' to quit.")
+    while True:
+        try:
+            user_input = input(f"{VFS_NAME}> ")
+            execute_command(user_input)
+        except KeyboardInterrupt:
+            print("\nExiting...")
+            break
+
+if __name__ == "__main__":
+    main()
+```
