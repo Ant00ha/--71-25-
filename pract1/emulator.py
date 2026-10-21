@@ -12,7 +12,7 @@ vfs_paths = []
 current_dir = "" 
 
 def load_vfs(zip_path):
-    """Загружает ZIP-архив[cite: 3]. Если его нет, создает тестовые папки в памяти для проверки."""
+    
     global vfs_paths
     try:
         with zipfile.ZipFile(zip_path, 'r') as z:
