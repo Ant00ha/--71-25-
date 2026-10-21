@@ -6,21 +6,43 @@ import csv
 import zipfile
 from datetime import datetime
 import sys
+import os
+import base64
 
-# VFS в памяти
 vfs_paths = []
 current_dir = "" 
+vfs_zip_path = ""
+
+import base64 # не забудьте добавить импорт в начале файла
+
+def cmd_cat(cmd_args):
+    if not cmd_args:
+        return "cat: пропущен аргумент"
+    
+    target_file = current_dir + cmd_args[0]
+    
+    if target_file in vfs_paths:
+        with zipfile.ZipFile(vfs_zip_path, 'r') as z:
+            data = z.read(target_file)
+            b64_text = base64.b64encode(data).decode('utf-8')
+            print(b64_text)
+        return ""
+    else:
+        return f"cat: {cmd_args[0]}: Нет такого файла"
 
 def load_vfs(zip_path):
-    
-    global vfs_paths
+    global vfs_paths, vfs_zip_path
+    vfs_zip_path = zip_path
+    if not os.path.exists(zip_path):
+        print(f"КРИТИЧЕСКАЯ ОШИБКА: Архив VFS '{zip_path}' не найден!")
+        sys.exit(1) # Завершаем программу с ошибкой
+
     try:
         with zipfile.ZipFile(zip_path, 'r') as z:
             vfs_paths = z.namelist()
-    except Exception:
-        
-        print(f"Архив '{zip_path}' не найден. Загружена тестовая файловая система.")
-        vfs_paths = ["Documents/", "Documents/file.txt", "Downloads/", "Pictures/"]
+    except zipfile.BadZipFile:
+        print(f"ОШИБКА: Файл '{zip_path}' поврежден или не является ZIP-архивом.")
+        sys.exit(1)
 
 def get_invitation():
     hostname = socket.gethostname()
@@ -44,7 +66,6 @@ def cmd_cd(cmd_args):
         return ""
     
     target = cmd_args[0]
-    
     if target == "..":
         if current_dir:
             parts = current_dir.rstrip('/').split('/')
@@ -52,7 +73,6 @@ def cmd_cd(cmd_args):
         return ""
     
     new_dir = current_dir + target.strip('/') + '/'
-    
     if any(p.startswith(new_dir) for p in vfs_paths):
         current_dir = new_dir
         return ""
@@ -66,7 +86,6 @@ def cmd_ls(cmd_args):
             rest = p[len(current_dir):]
             top_level_item = rest.split('/')[0]
             items.add(top_level_item)
-    
     if items:
         print("  ".join(sorted(items)))
     return ""
@@ -95,6 +114,10 @@ def execute_command(user_input, log_path):
             print(error_msg)
     elif command == "ls":
         error_msg = cmd_ls(cmd_args)
+    elif command == "cat":
+        error_msg = cmd_cat(cmd_args)
+        if error_msg:
+            print(error_msg)    
     else:
         error_msg = f"{command}: команда не найдена"
         print(error_msg)
@@ -103,7 +126,6 @@ def execute_command(user_input, log_path):
     return should_continue, bool(error_msg)
 
 def main():
-    
     parser = argparse.ArgumentParser()
     parser.add_argument('--vfs', default='vfs.zip', help="Путь к ZIP-архиву VFS")
     parser.add_argument('--log', default='log.csv', help="Путь к лог-файлу (CSV)")
@@ -112,23 +134,19 @@ def main():
 
     load_vfs(args.vfs)
 
-    
     if args.script:
         try:
             with open(args.script, 'r') as f:
                 for line in f:
                     line = line.strip()
                     if not line: continue
-                    
                     print(f"{get_invitation()}{line}")
                     should_continue, has_error = execute_command(line, args.log)
-                    
                     if has_error or not should_continue:
                         break 
         except FileNotFoundError:
-            pass
+            print(f"Скрипт {args.script} не найден.")
 
-    
     while True:
         try:
             user_input = input(get_invitation())

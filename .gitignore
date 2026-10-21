@@ -1,12 +1,11 @@
-# Кэш Python
 __pycache__/
 *.py[cod]
 
-# Файлы логов эмулятора
-*.csv
-*.log
 
-# Временные архивы и папки IDE
+*.zip
+*.tar
+*.rar
+
+
 .idea/
 .vscode/
-*.zip
